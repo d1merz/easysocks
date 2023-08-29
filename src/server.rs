@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::write;
+use std::fmt::{Display, Formatter, write};
+use std::str::FromStr;
 use tokio::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
@@ -10,35 +11,44 @@ struct ServerError {
 
 const SOCKS_VERSION: u8 = 0x05;
 
-static AUTH_LABELS: HashMap<u8, AUTH_METHODS> = HashMap::from([(0x00, AUTH_METHODS::NO_AUTH),
-    (0x02, AUTH_METHODS::GSSAPI),
-    (0xFF, AUTH_METHODS::USER_PASS)]);
-
-enum AUTH_METHODS {
-    NO_AUTH,
-    GSSAPI,
-    USER_PASS
+pub enum AuthMethods {
+    NO_AUTH = 0x00,
+    GSSAPI = 0x01,
+    USER_PASS = 0x02,
 }
 
-impl fmt::Display for AUTH_METHODS {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            AUTH_METHODS::NO_AUTH => write!(f, "NO_AUTH"),
-            AUTH_METHODS::GSSAPI => write!(f, "GSSAPI"),
-            AUTH_METHODS::USER_PASS => write!(f, "USER_PASS")
+impl FromStr for AuthMethods {
+
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<AuthMethods, Self::Err> {
+        match input {
+            "0x00"  => Ok(Self::NO_AUTH),
+            "0x01"  => Ok(Self::GSSAPI),
+            "0x02"  => Ok(Self::USER_PASS),
+            _      => Err(()),
         }
     }
 }
 
-struct User {
+impl Display for AuthMethods {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::GSSAPI => write!(f, "GSSAPI"),
+            Self::NO_AUTH => write!(f, "No authentication"),
+            Self::USER_PASS => write!(f, "User and Password")
+        }
+    }
+}
 
+struct Client {
+    auth_methods: Vec<u8>,
 }
 
 struct ServerParams {
     port: u16,
     ip: String,
-    auth_methods: Vec<u8>,
-    users: Vec<User>,
+    clients: Vec<Client>,
 }
 
 pub struct TcpServer {
@@ -54,7 +64,7 @@ pub struct UdpServer {
 impl TcpServer {
     pub async fn new(port: u16,
            ip: String) -> io::Result<Self> {
-        let params = ServerParams {port: port.clone(), ip: ip.clone(), auth_methods: vec![], users: vec![]};
+        let params = ServerParams {port: port.clone(), ip: ip.clone(), clients: vec![]};
         match TcpListener::bind((ip, port)).await {
             Ok(listener) => {
                 println!("TcpServer is successfully started!");
@@ -74,19 +84,20 @@ impl TcpServer {
     }
 }
 
-async fn parse_client_auth(mut stream: TcpStream) -> std::io::Result<()> {
+async fn parse_client_auth(mut stream: TcpStream) -> Result<Vec<AuthMethods>, std::io::Result<()>> {
     println!("Auth Methods negotiation starts...");
+    let mut client_methods = vec![];
     let mut version_header = 0u8;
     match stream.read_exact(std::slice::from_mut(&mut version_header)).await {
         Ok(_) => {
             if version_header != SOCKS_VERSION {
                 println!("Unsupported SOCKS version: {}", version_header.to_string());
-                return stream.shutdown().await
+                return Err(stream.shutdown().await)
             }
         },
         Err(err) => {
             println!("Error occurred while parsing client SOCKS version: {}", err.to_string());
-            return stream.shutdown().await
+            return Err(stream.shutdown().await)
         }
     }
     let mut nmethods_header = 0u8;
@@ -97,30 +108,30 @@ async fn parse_client_auth(mut stream: TcpStream) -> std::io::Result<()> {
                 let mut method = 0u8;
                 match stream.read_exact(std::slice::from_mut(&mut method)).await {
                     Ok(_) => {
-                        if let Some(auth) = AUTH_LABELS.get(&method) {
-                            println!("Client supports method {}", auth);
-                            //self.params.auth_methods.push(method);
+                        if let Ok(auth_method) = AuthMethods::from_str(method.to_string().as_str()) {
+                            println!("Client supports method {}", auth_method);
+                            client_methods.push(auth_method);
                         }
                     },
                     Err(err) => {
                         println!("Cannot parse AUTH methods: {}", err.to_string());
-                        return stream.shutdown().await
+                        return Err(stream.shutdown().await)
                     }
                 }
             }
         },
         Err(err) => {
             println!("Error occurred while parsing client NMETHODS header: {}", err.to_string());
-            return stream.shutdown().await
+            return Err(stream.shutdown().await)
         }
     }
-    Ok(())
+    Ok(client_methods)
 }
 
 impl UdpServer {
     pub async fn new(port: u16,
                  ip: String) -> io::Result<Self> {
-        let params = ServerParams {port: port.clone(), ip: ip.clone(), auth_methods: vec![], users: vec![]};
+        let params = ServerParams {port: port.clone(), ip: ip.clone(), clients: vec![]};
         match UdpSocket::bind((ip, port)).await {
             Ok(socket) => {
                 println!("UdpServer is successfully started!");
