@@ -9,3 +9,4 @@ edition = "2021"
 clap = { version = "4.3.21", features = ["derive"] }
 tokio = { version = "1.32.0", features = ["full"] }
 clap-num = "1.0.2"
+thiserror = {version = "1.0.47"}

@@ -1,5 +1,7 @@
 mod server;
 mod client;
+pub mod socks5;
+
 use clap::{Parser, ValueEnum};
 use clap_num::number_range;
 
