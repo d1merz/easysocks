@@ -64,32 +64,25 @@ impl TcpServer {
     }
 
     async fn process_connection(stream: &mut TcpStream) -> std::io::Result<()> {
-        let mut client_auth_header = [0u8; 2];
-        stream.read_exact(&mut client_auth_header).await?;
-        let nmethods = socks5::parse_client_auth_header(client_auth_header)?;
-        let mut method = 0u8;
-        let mut auth_methods = vec![];
-        for _ in 0..nmethods {
-            stream.read_exact(std::slice::from_mut(&mut method)).await?;
-            if let Some(auth_method) = socks5::parse_client_method(&method) {
-                auth_methods.push(auth_method);
-            }
-        }
-        println!("Client auth methods: {:?}", auth_methods);
-        let mut auth_method = AuthMethods::NO_AUTH;
-        if auth_methods.contains(&AuthMethods::USER_PASS) {
-            auth_method = AuthMethods::USER_PASS;
-        } else if auth_methods.contains(&AuthMethods::GSSAPI) {
-            auth_method = AuthMethods::GSSAPI;
-        }
-        let server_auth = [socks5::SOCKS_VERSION, auth_method as u8];
-        stream.write_all(server_auth.as_slice()).await?;
-        let mut username_len_buf = [0u8, 2];
-        stream.read_exact(&mut username_len_buf).await?;
-        let username_len = socks5::parse_username_len(username_len_buf)?;
-        let mut username_buf = vec![0u8; username_len];
-        stream.read_exact(&mut username_buf).await?;
-        let username = String::from_utf8_lossy(&username_buf).to_string();
+        println!("{} connected", stream.peer_addr().unwrap());
+        let mut buf: Vec<u8> = Vec::with_capacity(8); // 8 bytes should be enough for hello packet
+        stream.read_to_end(&mut buf).await?;
+        let client_auth_methods = socks5::parse_client_auth_methods(&buf)?;
+        println!("Client auth methods: {:?}", client_auth_methods);
+        // let mut auth_method = AuthMethods::NO_AUTH;
+        // if auth_methods.contains(&AuthMethods::USER_PASS) {
+        //     auth_method = AuthMethods::USER_PASS;
+        // } else if auth_methods.contains(&AuthMethods::GSSAPI) {
+        //     auth_method = AuthMethods::GSSAPI;
+        // }
+        // let server_auth = [socks5::SOCKS_VERSION, auth_method as u8];
+        // stream.write_all(server_auth.as_slice()).await?;
+        // let mut username_len_buf = [0u8, 2];
+        // stream.read_exact(&mut username_len_buf).await?;
+        // let username_len = socks5::parse_username_len(username_len_buf)?;
+        // let mut username_buf = vec![0u8; username_len];
+        // stream.read_exact(&mut username_buf).await?;
+        // let username = String::from_utf8_lossy(&username_buf).to_string();
         Ok(())
     }
 }

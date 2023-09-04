@@ -43,3 +43,21 @@ pub fn parse_username_len(header: [u8; 2]) -> Result<usize, std::io::Error> {
     }
     return Ok(header[1].clone() as usize)
 }
+
+pub fn parse_client_auth_methods(input: &Vec<u8>) -> Result<Vec<AuthMethods>, std::io::Error> {
+    let version = input[0].clone();
+    if version != SOCKS_VERSION {
+        return Err(Error::new(ErrorKind::Other, format!("Unsupported protocol version {}", version)));
+    }
+    let nmethods = input[1].clone();
+    if input.len() - 2 < nmethods as usize {
+        return Err(Error::new(ErrorKind::Other, format!("Client negotiation packet error: Nmethods: {}", nmethods)));
+    }
+    let mut methods = vec![];
+    for i in 0..nmethods {
+        if let Some(method) = parse_client_method(&input[i as usize + 2]) {
+            methods.push(method);
+        }
+    }
+    Ok(methods)
+}
