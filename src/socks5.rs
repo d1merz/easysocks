@@ -3,16 +3,22 @@ use std::fmt::{Display, Formatter};
 use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 
-const SOCKS_VERSION: u8 = 0x05;
+pub const SOCKS_VERSION: u8 = 0x05;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AuthMethods {
     NO_AUTH,
     GSSAPI,
     USER_PASS,
 }
 
-pub fn parse_client_methods_header(header: [u8; 2]) -> Result<u8, std::io::Error> {
+#[derive(Debug)]
+pub enum ConnectionStatus {
+    HELLO,
+    AUTH,
+}
+
+pub fn parse_client_auth_header(header: [u8; 2]) -> Result<u8, std::io::Error> {
     let version = header[0].clone();
     if version != SOCKS_VERSION {
         return Err(Error::new(ErrorKind::Other, format!("Unsupported protocol version {}", version)));
@@ -28,4 +34,12 @@ pub fn parse_client_method(method: &u8) -> Option<AuthMethods> {
         0x02 => Some(AuthMethods::USER_PASS),
         _ => {None}
     }
+}
+
+pub fn parse_username_len(header: [u8; 2]) -> Result<usize, std::io::Error> {
+    let version = header[0].clone();
+    if version != 0x01 {
+        return Err(Error::new(ErrorKind::Other, format!("Unsupported USER/PASS version {}", version)));
+    }
+    return Ok(header[1].clone() as usize)
 }
