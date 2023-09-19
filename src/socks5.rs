@@ -1,8 +1,3 @@
-use std::fmt;
-use std::fmt::{Display, Formatter};
-use std::io::{Error, ErrorKind};
-use std::str::FromStr;
-
 pub const VERSION: u8 = 0x05;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -69,6 +64,7 @@ impl Atyp {
     }
 }
 
+#[derive(Debug)]
 pub enum Reply {
     Success = 0x00,
     ServerFailure = 0x01,
