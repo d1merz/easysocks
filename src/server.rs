@@ -65,7 +65,7 @@ impl TcpServer {
         Self::process_request(&mut stream).await?;
         Ok(())
     }
-    #[instrument]
+
     async fn parse_client_auth_methods(stream: &mut TcpStream) -> Result<Vec<AuthMethods>, std::io::Error> {
         let mut version = 0u8;
         stream.read_exact(std::slice::from_mut(&mut version)).await?;
@@ -109,7 +109,6 @@ impl TcpServer {
         Ok((username, password))
     }
 
-    #[instrument]
     async fn auth_client(stream: &mut TcpStream, auth_method: AuthMethods) -> Result<(), std::io::Error> {
         match auth_method {
             AuthMethods::NoAuth => {
