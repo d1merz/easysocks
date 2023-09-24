@@ -5,5 +5,5 @@
 * 📝 **100% according to [RFC 1928](https://datatracker.ietf.org/doc/html/rfc1928)**
 * 🔎 **Clean code**
 * 📈 **High performance and robust**
-* ✅ **Tokio + TinyDb = No environment/system dependencies required**
+* ✅ **Tokio + Serde = No environment/system dependencies required**
 
