@@ -1,24 +1,25 @@
 use std::io::{Error, ErrorKind};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::path::PathBuf;
-use tinydb::Database;
 use tokio::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize};
 use tracing::{debug, error, info, instrument, warn};
+use fs4::tokio::AsyncFileExt;
+use tokio::fs::File;
+use csv;
 
 use crate::socks5::{*};
 
 #[derive(Debug)]
 pub struct TcpServer {
-    listener: TcpListener,
+    listener: TcpListener
 }
 
-#[derive(PartialEq, Eq, Hash, Deserialize, Serialize)]
-struct Client {
-    user: String,
-    pass: String,
+#[derive(PartialEq, Eq, Hash, Deserialize)]
+pub struct Client {
+    pub name: String,
+    pub pass: String,
 }
 
 impl TcpServer {
@@ -116,13 +117,21 @@ impl TcpServer {
             }
             AuthMethods::UserPass => {
                 stream.write_all(&[VERSION, AuthMethods::UserPass as u8]).await?;
-                let (user, pass) = Self::parse_user_pass(stream).await?;
-                let db: Database<Client> = Database::from(PathBuf::from("clients.tinydb")).unwrap();
-                if db.contains(&Client { user, pass }) {
-                    stream.write_all(&[1, AuthResponseCode::Success as u8]).await?;
+                let (name, pass) = Self::parse_user_pass(stream).await?;
+                let mut file = File::open("clients").await?;
+                let mut buf : Vec<u8> = Vec::new();
+                file.lock_shared()?;
+                file.read_to_end(&mut buf).await?;
+                file.unlock()?;
+                let mut reader = csv::Reader::from_reader(buf.as_slice());
+                let clients: Vec<Result<Client, csv::Error>> = reader.deserialize().collect();
+                if clients.into_iter().any(|client| {
+                    if client.is_ok()  {
+                        Client {name: name.clone(), pass: pass.clone()} == client.unwrap()
+                    } else {false}
+                }) {
                     Ok(())
                 } else {
-                    stream.write_all(&[1, AuthResponseCode::Failure as u8]).await?;
                     Err(std::io::Error::new(ErrorKind::Other, "No such user in clients database"))
                 }
             }
