@@ -19,9 +19,9 @@ fn port_validator(port: &str) -> Result<u16, String> {
 
 #[derive(Parser)]
 struct Cli {
-    #[arg(value_enum, short, long)]
+    #[arg(value_enum, long)]
     proto: Proto,
-    #[clap(value_parser = port_validator)]
+    #[clap(value_parser = port_validator, long)]
     port: u16,
 }
 
