@@ -1,11 +1,11 @@
 # docker-bake.hcl
 variable "BUILD_NUMBER" {
-  default = "v1"
+  default = "1"
 }
 group "default" {
   targets = ["easysocks"]
 }
 target "easysocks" {
   dockerfile = "Dockerfile"
-  tags       = ["latest", "${BUILD_NUMBER}"]
+  tags       = ["ghcr.io/dimerz-tech/easysocks:${BUILD_NUMBER}", "ghcr.io/dimerz-tech/easysocks:latest"]
 }
