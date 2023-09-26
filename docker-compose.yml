@@ -2,6 +2,9 @@ version: "3.3"
 services:
   easysocks:
     image: ghcr.io/dimerz-tech/easysocks:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8001:8001"
     entrypoint: ["./easysocks", "--proto", "tcp", "--port", "8001"]
