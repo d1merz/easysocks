@@ -48,6 +48,9 @@ jobs:
 
       - name: Deploy
         uses: appleboy/ssh-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          GITHUB_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_LOGIN }}
@@ -58,8 +61,6 @@ jobs:
             docker-compose down
             docker-compose pull
             docker-compose up
-          envs:
-            GITHUB_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-            GITHUB_USER: ${{ github.actor }}
+          envs: GITHUB_TOKEN,GITHUB_USER
 
 
