@@ -41,12 +41,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Docker login
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.REGISTRY_TOKEN }}
       - name: Install sshpass
         run: sudo apt-get install sshpass
       - name: Copy docker-compose
@@ -60,8 +54,12 @@ jobs:
           password: ${{ secrets.SERVER_PASS }}
           script: |
             cd ~/easysocks/
+            echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
             docker-compose down
             docker-compose pull
             docker-compose up
+          envs:
+            GITHUB_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+            GITHUB_USER: ${{ github.actor }}
 
 

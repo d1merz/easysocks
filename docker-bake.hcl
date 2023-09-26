@@ -1,5 +1,8 @@
 # docker-bake.hcl
-target "default" {
+group "default" {
+  targets = ["easysocks"]
+}
+target "easysocks" {
   dockerfile = "Dockerfile"
   tags       = ["latest", "$BUILD_NUMBER"]
 }
