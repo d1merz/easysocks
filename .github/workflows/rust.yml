@@ -34,7 +34,7 @@ jobs:
       with:
         push: true
         set: |
-          target.args.build_number=${{ github.run_number }}
+          target.args.BUILD_NUMBER=${{ github.run_number }}
   deploy:
     needs: build
     runs-on: ubuntu-latest
