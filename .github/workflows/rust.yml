@@ -33,7 +33,8 @@ jobs:
       uses: docker/bake-action@v4
       with:
         push: true
-        set: target.args.build_number=${{ github.run_number }}
+        set: |
+        target.args.build_number=${{ github.run_number }}
   deploy:
     needs: build
     runs-on: ubuntu-latest
