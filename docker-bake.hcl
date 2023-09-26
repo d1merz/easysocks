@@ -4,5 +4,5 @@ group "default" {
 }
 target "easysocks" {
   dockerfile = "Dockerfile"
-  tags       = ["latest", "$BUILD_NUMBER"]
+  tags       = ["latest", "${BUILD_NUMBER}"]
 }
