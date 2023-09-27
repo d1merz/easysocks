@@ -42,7 +42,13 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get install sshpass
       - name: Copy docker-compose
-        run: sshpass -v -p ${{ secrets.SERVER_PASS }} scp -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.SERVER_LOGIN }}@${{ secrets.SERVER_HOST }}:~/easysocks/
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_LOGIN }}
+          password: ${{ secrets.SERVER_PASS }}
+          source: "./docker-compose.yml"
+          target: "~/easysocks/"
 
       - name: Deploy
         uses: appleboy/ssh-action@master
