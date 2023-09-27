@@ -25,7 +25,7 @@ pub struct Client {
 impl TcpServer {
     #[instrument]
     pub async fn new(port: u16,
-                     ip: String) -> io::Result<Self> {
+                     ip: IpAddr) -> io::Result<Self> {
         match TcpListener::bind((ip, port)).await {
             Ok(listener) => {
                 info!("TcpServer is successfully started!");
@@ -118,7 +118,7 @@ impl TcpServer {
             AuthMethods::UserPass => {
                 stream.write_all(&[VERSION, AuthMethods::UserPass as u8]).await?;
                 let (name, pass) = Self::parse_user_pass(stream).await?;
-                let mut file = File::open("clients").await?;
+                let mut file = File::open("users.csv").await?;
                 let mut buf : Vec<u8> = Vec::new();
                 file.lock_shared()?;
                 file.read_to_end(&mut buf).await?;
