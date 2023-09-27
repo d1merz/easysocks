@@ -1,5 +1,6 @@
 use std::io::{Error, ErrorKind};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::path::{PathBuf};
 use tokio::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -13,11 +14,12 @@ use crate::socks5::{*};
 
 #[derive(Debug)]
 pub struct TcpServer {
-    listener: TcpListener
+    listener: TcpListener,
+    users_file: PathBuf
 }
 
 #[derive(PartialEq, Eq, Hash, Deserialize, Debug)]
-pub struct Client {
+pub struct User {
     pub name: String,
     pub pass: String,
 }
@@ -25,11 +27,11 @@ pub struct Client {
 impl TcpServer {
     #[instrument]
     pub async fn new(port: u16,
-                     ip: IpAddr) -> io::Result<Self> {
+                     ip: IpAddr, users_file: PathBuf) -> io::Result<Self> {
         match TcpListener::bind((ip, port)).await {
             Ok(listener) => {
                 info!("TcpServer is successfully started!");
-                Ok(TcpServer { listener })
+                Ok(TcpServer { listener, users_file })
             }
             Err(err) => {
                 error!("Cannot start TcpServer because of the error, {}", err.to_string());
@@ -41,8 +43,9 @@ impl TcpServer {
     pub async fn listen(&self) {
         info!("Listening to connections...");
         while let Ok((mut stream, addr)) = self.listener.accept().await {
+            let users_file = self.users_file.clone();
             tokio::spawn(async move {
-                match Self::process_connection(&mut stream).await {
+                match Self::process_connection(&mut stream, users_file).await {
                     Ok(_) => {}
                     Err(err) => {
                         error!("Failed to serve a connection {}\n{}", addr, err);
@@ -55,13 +58,13 @@ impl TcpServer {
         }
     }
     #[instrument]
-    async fn process_connection(mut stream: &mut TcpStream) -> std::io::Result<()> {
+    async fn process_connection(mut stream: &mut TcpStream, users_file: PathBuf) -> std::io::Result<()> {
         info!("{} connected", stream.peer_addr().unwrap());
         let client_auth_methods = Self::parse_client_auth_methods(&mut stream).await?;
         info!("Client auth methods: {:?}", client_auth_methods);
         let auth_method = Self::define_auth_method(&client_auth_methods);
         info!("Server wants to use {:?}", auth_method.clone());
-        Self::auth_client(&mut stream, auth_method).await?;
+        Self::auth_client(&mut stream, auth_method, users_file).await?;
         info!("Client authorized, listening to requests...");
         Self::process_request(&mut stream).await?;
         Ok(())
@@ -110,7 +113,7 @@ impl TcpServer {
         Ok((username, password))
     }
 
-    async fn auth_client(stream: &mut TcpStream, auth_method: AuthMethods) -> Result<(), std::io::Error> {
+    async fn auth_client(stream: &mut TcpStream, auth_method: AuthMethods, users_file: PathBuf) -> Result<(), std::io::Error> {
         match auth_method {
             AuthMethods::NoAuth => {
                 stream.write_all(&[VERSION, AuthMethods::NoAuth as u8]).await
@@ -118,17 +121,17 @@ impl TcpServer {
             AuthMethods::UserPass => {
                 stream.write_all(&[VERSION, AuthMethods::UserPass as u8]).await?;
                 let (name, pass) = Self::parse_user_pass(stream).await?;
-                let mut file = File::open("users.csv").await?;
+                let mut file = File::open(users_file).await?;
                 let mut buf : Vec<u8> = Vec::new();
                 file.lock_shared()?;
                 file.read_to_end(&mut buf).await?;
                 file.unlock()?;
                 let mut reader = csv::Reader::from_reader(buf.as_slice());
-                let clients: Vec<Result<Client, csv::Error>> = reader.deserialize().collect();
+                let clients: Vec<Result<User, csv::Error>> = reader.deserialize().collect();
                 if clients.into_iter().any(|client| {
                     if client.is_ok()  {
                         let c = client.unwrap();
-                        Client {name: name.clone(), pass: pass.clone()} == c
+                        User {name: name.clone(), pass: pass.clone()} == c
                     } else { false }
                 }) {
                     stream.write_all(&[1, AuthResponseCode::Success as u8]).await?;
