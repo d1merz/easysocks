@@ -35,7 +35,7 @@ async fn main() {
             server.listen().await;
         }
         Proto::UDP => {
-            debug!("Not implemendet yet");
+            debug!("Not implemented yet");
             return;
         }
     }
