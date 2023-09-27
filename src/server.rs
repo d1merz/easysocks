@@ -16,7 +16,7 @@ pub struct TcpServer {
     listener: TcpListener
 }
 
-#[derive(PartialEq, Eq, Hash, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Deserialize, Debug)]
 pub struct Client {
     pub name: String,
     pub pass: String,
@@ -127,11 +127,14 @@ impl TcpServer {
                 let clients: Vec<Result<Client, csv::Error>> = reader.deserialize().collect();
                 if clients.into_iter().any(|client| {
                     if client.is_ok()  {
-                        Client {name: name.clone(), pass: pass.clone()} == client.unwrap()
-                    } else {false}
+                        let c = client.unwrap();
+                        Client {name: name.clone(), pass: pass.clone()} == c
+                    } else { false }
                 }) {
+                    stream.write_all(&[1, AuthResponseCode::Success as u8]).await?;
                     Ok(())
                 } else {
+                    stream.write_all(&[1, AuthResponseCode::Failure as u8]).await?;
                     Err(std::io::Error::new(ErrorKind::Other, "No such user in clients database"))
                 }
             }
