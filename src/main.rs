@@ -31,7 +31,7 @@ async fn main() {
     let cli = Cli::parse();
     match cli.proto {
         Proto::TCP => {
-            let server = server::TcpServer::new(cli.port, "127.0.0.1".to_string()).await.unwrap();
+            let server = server::TcpServer::new(cli.port, "0.0.0.0".to_string()).await.unwrap();
             server.listen().await;
         }
         Proto::UDP => {
