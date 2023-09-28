@@ -5,5 +5,5 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      - "~/easysocks/users.csv:users.csv"
+      - "~/easysocks/users.csv:/users.csv"
     entrypoint: ["easysocks", "--proto", "tcp", "--port", "8001", "--users", "users.csv"]
