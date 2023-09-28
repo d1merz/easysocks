@@ -35,7 +35,7 @@ struct Cli {
     #[clap(value_parser = port_validator, long)]
     port: u16,
     #[clap(value_parser = path_validator, long)]
-    users: PathBuf
+    users: Option<PathBuf>
 }
 
 #[tokio::main]

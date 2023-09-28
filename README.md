@@ -25,8 +25,18 @@ admin,admin
 
 ### Run docker container
 ```bash
-docker run -v /absolute/path/to/users.csv:/easysocks/users.csv --proto tcp --port 8001 --ip 127.0.0.1 --users users.csv
+docker pull ghcr.io/dimerz-tech/easysocks:latest
+docker run -v path/to/users.csv:/users.csv ghcr.io/dimerz-tech/easysocks:latest --proto tcp --port 8001 --ip 127.0.0.1 --users users.csv
 ```
+or use `docker-compose`:
+```bash
+# with docker-compose.yml and users.csv
+docker-compose up
+```
+
+
+
+
 
 
 

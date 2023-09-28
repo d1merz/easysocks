@@ -15,7 +15,7 @@ use crate::socks5::{*};
 #[derive(Debug)]
 pub struct TcpServer {
     listener: TcpListener,
-    users_file: PathBuf
+    users_file: Option<PathBuf>
 }
 
 #[derive(PartialEq, Eq, Hash, Deserialize, Debug)]
@@ -32,7 +32,7 @@ todo! GSSAPI
 impl TcpServer {
     #[instrument]
     pub async fn new(port: u16,
-                     ip: IpAddr, users_file: PathBuf) -> io::Result<Self> {
+                     ip: IpAddr, users_file: Option<PathBuf>) -> io::Result<Self> {
         match TcpListener::bind((ip, port)).await {
             Ok(listener) => {
                 info!("TcpServer is successfully started!");
@@ -65,7 +65,7 @@ impl TcpServer {
 
     /************MAIN FLOW************/
     #[instrument]
-    async fn process_connection(mut stream: &mut TcpStream, users_file: PathBuf) -> std::io::Result<()> {
+    async fn process_connection(mut stream: &mut TcpStream, users_file: Option<PathBuf>) -> std::io::Result<()> {
         info!("{} connected", stream.peer_addr().unwrap());
         let client_auth_methods = Self::parse_client_auth_methods(&mut stream).await?;
         info!("Client auth methods: {:?}", client_auth_methods);
@@ -142,7 +142,7 @@ impl TcpServer {
         Ok((username, password))
     }
 
-    async fn auth_client(stream: &mut TcpStream, auth_method: AuthMethods, users_file: PathBuf) -> Result<(), std::io::Error> {
+    async fn auth_client(stream: &mut TcpStream, auth_method: AuthMethods, users_file: Option<PathBuf>) -> Result<(), std::io::Error> {
         match auth_method {
             AuthMethods::NoAuth => {
                 stream.write_all(&[VERSION, AuthMethods::NoAuth as u8]).await
@@ -150,7 +150,7 @@ impl TcpServer {
             AuthMethods::UserPass => {
                 stream.write_all(&[VERSION, AuthMethods::UserPass as u8]).await?;
                 let (name, pass) = Self::parse_user_pass(stream).await?;
-                let mut file = File::open(users_file).await?;
+                let mut file = File::open(users_file.unwrap_or(PathBuf::from("users.csv"))).await?;
                 let mut buf : Vec<u8> = Vec::new();
                 file.lock_shared()?;
                 file.read_to_end(&mut buf).await?;
