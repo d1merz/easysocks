@@ -24,6 +24,11 @@ pub struct User {
     pub pass: String,
 }
 
+/*
+Server implements https://datatracker.ietf.org/doc/html/rfc1928
+todo! GSSAPI
+ */
+
 impl TcpServer {
     #[instrument]
     pub async fn new(port: u16,
@@ -57,6 +62,8 @@ impl TcpServer {
             });
         }
     }
+
+    /************MAIN FLOW************/
     #[instrument]
     async fn process_connection(mut stream: &mut TcpStream, users_file: PathBuf) -> std::io::Result<()> {
         info!("{} connected", stream.peer_addr().unwrap());
@@ -71,6 +78,15 @@ impl TcpServer {
     }
 
     async fn parse_client_auth_methods(stream: &mut TcpStream) -> Result<Vec<AuthMethods>, std::io::Error> {
+        /*
+        The client connects to the server, and sends a version
+        identifier/method selection message:
+               +----+----------+----------+
+               |VER | NMETHODS | METHODS  |
+               +----+----------+----------+
+               | 1  |    1     | 1 to 255 |
+               +----+----------+----------+
+        */
         let mut version = 0u8;
         stream.read_exact(std::slice::from_mut(&mut version)).await?;
         if version != VERSION {
@@ -98,6 +114,19 @@ impl TcpServer {
     }
 
     async fn parse_user_pass(stream: &mut TcpStream) -> Result<(String, String), std::io::Error> {
+        /*
+        Once the SOCKS V5 server has started, and the client has selected the
+        Username/Password Authentication protocol, the Username/Password
+        subnegotiation begins.  This begins with the client producing a
+        Username/Password request:
+
+           +----+------+----------+------+----------+
+           |VER | ULEN |  UNAME   | PLEN |  PASSWD  |
+           +----+------+----------+------+----------+
+           | 1  |  1   | 1 to 255 |  1   | 1 to 255 |
+           +----+------+----------+------+----------+
+           https://www.rfc-editor.org/rfc/rfc1929
+         */
         let mut version = 0u8;
         stream.read_exact(std::slice::from_mut(&mut version)).await?;
         let mut ulen = 0u8;
@@ -145,6 +174,19 @@ impl TcpServer {
     }
 
     async fn reply(stream: &mut TcpStream, status: Reply, server_port: u16) -> Result<(), std::io::Error> {
+        /*
+        The SOCKS request information is sent by the client as soon as it has
+        established a connection to the SOCKS server, and completed the
+        authentication negotiations.  The server evaluates the request, and
+        returns a reply formed as follows:
+
+        +----+-----+-------+------+----------+----------+
+        |VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
+        +----+-----+-------+------+----------+----------+
+        | 1  |  1  | X'00' |  1   | Variable |    2     |
+        +----+-----+-------+------+----------+----------+
+
+         */
         let buf = [VERSION, status as u8, 0x00, Atyp::IpV4 as u8, 0x00, 0x00, 0x00, 0x00, (server_port.clone() >> 8) as u8, ((server_port << 8) >> 8) as u8];
         stream.write_all(&buf).await?;
         Ok(())
@@ -152,11 +194,24 @@ impl TcpServer {
 
     #[instrument]
     async fn process_request(stream: &mut TcpStream) -> Result<(), std::io::Error> {
+        /*
+        The SOCKS request is formed as follows:
+
+        +----+-----+-------+------+----------+----------+
+        |VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
+        +----+-----+-------+------+----------+----------+
+        | 1  |  1  | X'00' |  1   | Variable |    2     |
+        +----+-----+-------+------+----------+----------+
+         */
+
+        /************PARSE VERSION************/
         let mut version = 0u8;
         stream.read_exact(std::slice::from_mut(&mut version)).await?;
         if version != VERSION {
             return Err(Error::new(ErrorKind::Other, format!("Unsupported protocol version {}", version)));
         }
+
+        /************PARSE COMMAND************/
         let mut cmd = 0u8;
         stream.read_exact(std::slice::from_mut(&mut cmd)).await?;
         let _ = match Cmd::from(&cmd) {
@@ -168,6 +223,8 @@ impl TcpServer {
         };
         let mut rsv = 0u8;
         stream.read_exact(std::slice::from_mut(&mut rsv)).await?;
+
+        /************PARSE ADDRESS TYPE************/
         let mut atyp = 0u8;
         stream.read_exact(std::slice::from_mut(&mut atyp)).await?;
         let address_type = match Atyp::from(&atyp) {
@@ -180,6 +237,8 @@ impl TcpServer {
             }
         };
         debug!("Address type {:?}", address_type);
+
+        /************PARSE DESTINATION ADDRESS************/
         let addr = match address_type {
             Atyp::IpV4 => {
                 let mut buf = [0u8; 4];
@@ -201,9 +260,13 @@ impl TcpServer {
                 domain
             }
         };
+
+        /************PARSE DESTINATION PORT************/
         let mut port = [0u8; 2];
         stream.read_exact(&mut port).await?;
         let port = Self::to_u16(&port[0], &port[1]);
+
+        /************CONNECT TO THE TARGET HOST************/
         let target_connection = match address_type {
             Atyp::IpV4 => {
                 let target_host = SocketAddr::new(IpAddr::from(Ipv4Addr::new(addr[0].clone(),
@@ -229,6 +292,7 @@ impl TcpServer {
             }
         };
 
+        /************REPLY CLIENT AND SET BIDIRECTIONAL SESSION************/
        match target_connection {
             Err(err) =>{
                 let status= match err.kind() {

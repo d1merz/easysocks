@@ -4,4 +4,6 @@ services:
     image: ghcr.io/dimerz-tech/easysocks:latest
     ports:
       - "8001:8001"
-    entrypoint: ["./easysocks", "--proto", "tcp", "--port", "8001"]
+    volumes:
+      - "~/easysocks/users.csv:users.csv"
+    entrypoint: ["easysocks", "--proto", "tcp", "--port", "8001", "--users", "users.csv"]
