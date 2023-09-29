@@ -17,7 +17,7 @@ cargo build --release
 target/release/easysocks --proto tcp --port 8001 --ip 127.0.0.1 --users users.csv
 ```
 
-*users.csv example*:
+**users.csv example**:
 ```csv
 name,pass
 admin,admin
@@ -26,7 +26,7 @@ admin,admin
 ### Run docker container
 ```bash
 docker pull ghcr.io/dimerz-tech/easysocks:latest
-docker run -v path/to/users.csv:/users.csv ghcr.io/dimerz-tech/easysocks:latest --proto tcp --port 8001 --ip 127.0.0.1 --users users.csv
+docker run -v path/to/users.csv:/users.csv ghcr.io/dimerz-tech/easysocks:latest -p=8001:8001 --proto tcp --port 8001 --ip 127.0.0.1 --users users.csv
 ```
 or use `docker-compose`:
 ```bash
@@ -34,9 +34,7 @@ or use `docker-compose`:
 docker-compose up
 ```
 
-
-
-
-
-
-
+##TODO
+* ⛔️ **GSSAPI support**
+* ⛔️ **UDP support**
+* ⛔️ **BIND and ASSOCIATE support**
